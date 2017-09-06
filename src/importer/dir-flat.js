@@ -10,10 +10,9 @@ const DAGNode = dagPB.DAGNode
 const Dir = require('./dir')
 
 class DirFlat extends Dir {
-  constructor (props) {
-    super()
+  constructor (props, _options) {
+    super(props, _options)
     this._children = {}
-    Object.assign(this, props)
   }
 
   put (name, value, callback) {
@@ -57,10 +56,14 @@ class DirFlat extends Dir {
       })
 
     const dir = new UnixFS('directory')
+    const options = this._options
+
     waterfall(
       [
-        (callback) => DAGNode.create(dir.marshal(), links, callback),
+        (callback) => DAGNode.create(dir.marshal(), links, options.hashAlg, callback),
         (node, callback) => {
+          if (options.onlyHash) return callback(null, node)
+
           ipldResolver.put(
             node,
             {
@@ -86,6 +89,6 @@ class DirFlat extends Dir {
 
 module.exports = createDirFlat
 
-function createDirFlat (props) {
-  return new DirFlat(props)
+function createDirFlat (props, _options) {
+  return new DirFlat(props, _options)
 }
