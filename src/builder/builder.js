@@ -8,6 +8,7 @@ const parallel = require('async/parallel')
 const waterfall = require('async/waterfall')
 const dagPB = require('ipld-dag-pb')
 const CID = require('cids')
+const FileProgress = require('../file-progress')
 
 const reduce = require('./reduce')
 
@@ -16,13 +17,16 @@ const DAGNode = dagPB.DAGNode
 const defaultOptions = {
   chunkerOptions: {
     maxChunkSize: 262144
-  }
+  },
+  progress: false // emit FileProgress objects as well as DAGNode objects
 }
 
 module.exports = function (createChunker, ipldResolver, createReducer, _options) {
   const options = extend({}, defaultOptions, _options)
 
   return function (source) {
+    const onProgress = options.progress ? (p) => source.push(p) : null
+
     return function (items, cb) {
       parallel(items.map((item) => (cb) => {
         if (!item.content) {
@@ -39,7 +43,7 @@ module.exports = function (createChunker, ipldResolver, createReducer, _options)
         }
 
         // item is a file
-        createAndStoreFile(item, (err, node) => {
+        createAndStoreFile(item, onProgress, (err, node) => {
           if (err) {
             return cb(err)
           }
@@ -83,7 +87,7 @@ module.exports = function (createChunker, ipldResolver, createReducer, _options)
     })
   }
 
-  function createAndStoreFile (file, callback) {
+  function createAndStoreFile (file, onProgress, callback) {
     if (Buffer.isBuffer(file.content)) {
       file.content = pull.values([file.content])
     }
@@ -100,12 +104,10 @@ module.exports = function (createChunker, ipldResolver, createReducer, _options)
     pull(
       file.content,
       createChunker(options.chunkerOptions),
-      pull.map(chunk => {
-        if (options.progress && typeof options.progress === 'function') {
-          options.progress(chunk.byteLength)
-        }
-        return new Buffer(chunk)
-      }),
+      pull.map(chunk => Buffer.from(chunk)),
+      pull.through(onProgress ? (buffer) => {
+        onProgress(new FileProgress(file.path, buffer.byteLength))
+      } : null),
       pull.map(buffer => new UnixFS('file', buffer)),
       pull.asyncMap((fileNode, callback) => {
         DAGNode.create(fileNode.marshal(), [], options.hashAlg, (err, node) => {

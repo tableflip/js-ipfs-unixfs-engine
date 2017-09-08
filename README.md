@@ -138,7 +138,7 @@ The input's file paths and directory structure will be preserved in the [`dag-pb
 - `dirBuilder` (object): the options for the directory builder
   - `hamt` (object): the options for the HAMT sharded directory builder
     - bits (positive integer, defaults to `8`): the number of bits at each bucket of the HAMT
-- `progress` (function): a function that will be called with the byte length of chunks as a file is added to ipfs.
+- `progress` (boolean, defaults to false): emit `FileProgress` objects from the stream as files are imported
 - `onlyHash` (boolean, defaults to false): Only chunk and hash - do not write to disk
 - `hashAlg` (string): multihash hashing algorithm to use
 - `cidVersion` (integer, default 0): the CID version to use when storing the data (storage keys are based on the CID, _including_ it's version)

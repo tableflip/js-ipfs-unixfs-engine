@@ -9,6 +9,7 @@ const pushable = require('pull-pushable')
 const DirFlat = require('./dir-flat')
 const flatToShard = require('./flat-to-shard')
 const Dir = require('./dir')
+const FileProgress = require('../file-progress')
 
 module.exports = createTreeBuilder
 
@@ -64,6 +65,11 @@ function createTreeBuilder (ipldResolver, _options) {
       eachSeries(
         elems,
         (elem, callback) => {
+          if (elem instanceof FileProgress) {
+            source.push(elem)
+            return callback()
+          }
+
           queue.push({
             fn: addToTree,
             args: [elem],

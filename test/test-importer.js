@@ -7,7 +7,6 @@ const extend = require('deep-extend')
 const chai = require('chai')
 chai.use(require('dirty-chai'))
 const expect = chai.expect
-const sinon = require('sinon')
 const BlockService = require('ipfs-block-service')
 const pull = require('pull-stream')
 const mh = require('multihashes')
@@ -15,6 +14,7 @@ const CID = require('cids')
 const IPLDResolver = require('ipld-resolver')
 const loadFixture = require('aegir/fixtures')
 const each = require('async/each')
+const FileProgress = require('../src/file-progress')
 
 function stringifyMh (files) {
   return files.map((file) => {
@@ -451,18 +451,18 @@ module.exports = (repo) => {
         )
       })
 
-      it('will call an optional progress function', (done) => {
-        options.progress = sinon.spy()
-
+      it('should emit FileProgress objects if progress option is passed', (done) => {
         pull(
           pull.values([{
             path: '1.2MiB.txt',
             content: pull.values([bigFile])
           }]),
-          importer(ipldResolver, options),
-          pull.collect(() => {
-            expect(options.progress.called).to.equal(true)
-            expect(options.progress.args[0][0]).to.equal(1024)
+          importer(ipldResolver, Object.assign({}, options, { progress: true })),
+          pull.filter((chunk) => chunk instanceof FileProgress),
+          pull.collect((err, progresses) => {
+            if (err) return done(err)
+            const totalBytes = progresses.reduce((bytes, p) => bytes + p.bytes, 0)
+            expect(totalBytes).to.equal(bigFile.byteLength)
             done()
           })
         )
